@@ -1,0 +1,47 @@
+{
+  "kind": "books#volumes",
+  "totalItems": 4,
+  "items": [
+    {
+      "id": "g1",
+      "volumeInfo": {
+        "title": "Wind and Truth",
+        "authors": ["Brandon Sanderson"],
+        "publishedDate": "2026-12-06",
+        "language": "en",
+        "printType": "BOOK",
+        "industryIdentifiers": [{ "type": "ISBN_13", "identifier": "9780000000001" }]
+      }
+    },
+    {
+      "id": "g2",
+      "volumeInfo": {
+        "title": "Wind and Truth (Deluxe Edition)",
+        "authors": ["Brandon Sanderson"],
+        "publishedDate": "2026",
+        "language": "en",
+        "printType": "BOOK"
+      }
+    },
+    {
+      "id": "g3",
+      "volumeInfo": {
+        "title": "Summary of Wind and Truth",
+        "authors": ["John Doe"],
+        "publishedDate": "2026-01-01",
+        "language": "en",
+        "printType": "BOOK"
+      }
+    },
+    {
+      "id": "g4",
+      "volumeInfo": {
+        "title": "The Cosmere Companion",
+        "authors": ["Other Author", "Brandon Sanderson"],
+        "publishedDate": "2026-05-01",
+        "language": "en",
+        "printType": "BOOK"
+      }
+    }
+  ]
+}

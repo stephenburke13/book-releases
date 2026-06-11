@@ -1,0 +1,46 @@
+# Book release tracker configuration.
+#
+# "Subscribing" to an author = add an entry under `authors:` and commit.
+# The next scheduled run seeds that author's current backlist into state.json
+# silently (no emails), then notifies you about anything new from then on.
+
+settings:
+  # Only keep works in one of these languages. Works whose every edition is in
+  # another language are dropped. Lowercase ISO-639-1 codes.
+  allowed_languages: [en]
+
+  # "Releasing soon" window: a tracked title fires a Release email when its
+  # (day-precision) release date is between today and today + this many days.
+  release_lead_window_days: 7
+
+  # A tracked work that stops appearing in its sources (while those sources are
+  # healthy) is retired after this many runs. Retired works are never deleted,
+  # so they can't re-announce if they reappear.
+  retire_after_runs: 14
+
+  # Which data sources to query. Order here does not matter; Hardcover is always
+  # treated as canonical during cross-source merge.
+  enabled_sources: [hardcover, googlebooks]
+
+  email:
+    provider: resend # resend | console
+    from: "onboarding@resend.dev" # Resend test sender (delivers only to your account email)
+    to: "scburke4@gmail.com"
+
+  # Case-insensitive substrings. Any work whose title contains one of these is
+  # dropped as junk (study guides, box sets, etc.).
+  junk_title_patterns:
+    - "study guide"
+    - "summary of"
+    - "summary and analysis"
+    - "analysis of"
+    - "boxed set"
+    - "box set"
+    - "workbook"
+
+authors:
+  - author_key: sanderson # you assign this — a stable, source-agnostic slug
+    name: "Brandon Sanderson"
+    hardcover_id: 333 # optional but strongly preferred (canonical author match)
+    google_query: 'inauthor:"Brandon Sanderson"' # optional Google Books query override
+    primary_author_names: ["Brandon Sanderson"] # used to filter Google Books false positives
