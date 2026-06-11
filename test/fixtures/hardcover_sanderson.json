@@ -1,0 +1,43 @@
+{
+  "data": {
+    "books": [
+      {
+        "id": 1,
+        "slug": "wind-and-truth",
+        "title": "Wind and Truth",
+        "release_date": "2026-12-06",
+        "contributions": [{ "author": { "id": 333, "name": "Brandon Sanderson" } }],
+        "editions": [
+          { "id": 11, "isbn_13": "9780000000001", "reading_format_id": 1, "language": { "code2": "en" } },
+          { "id": 12, "isbn_13": "9780000000002", "reading_format_id": 4, "language": { "code2": "en" } },
+          { "id": 13, "isbn_13": "9780000000003", "reading_format_id": 2, "language": { "code2": "en" } },
+          { "id": 14, "isbn_13": "9780000000004", "reading_format_id": 1, "language": { "code2": "de" } }
+        ]
+      },
+      {
+        "id": 2,
+        "slug": "wind-and-truth-study-guide",
+        "title": "Wind and Truth: A Study Guide",
+        "release_date": "2026-11-01",
+        "contributions": [{ "author": { "id": 333, "name": "Brandon Sanderson" } }],
+        "editions": [{ "id": 21, "reading_format_id": 1, "language": { "code2": "en" } }]
+      },
+      {
+        "id": 3,
+        "slug": "no-date-book",
+        "title": "Untitled Sanderson Project",
+        "release_date": null,
+        "contributions": [{ "author": { "id": 333, "name": "Brandon Sanderson" } }],
+        "editions": [{ "id": 31, "reading_format_id": 1, "language": { "code2": "en" } }]
+      },
+      {
+        "id": 4,
+        "slug": "german-only",
+        "title": "Der Sturm",
+        "release_date": "2027-01-01",
+        "contributions": [{ "author": { "id": 333, "name": "Brandon Sanderson" } }],
+        "editions": [{ "id": 41, "reading_format_id": 1, "language": { "code2": "de" } }]
+      }
+    ]
+  }
+}
