@@ -6,3 +6,11 @@ node_modules/
 .DS_Store
 coverage/
 .vitest/
+
+# Next.js / OpenNext / Wrangler
+.next/
+.open-next/
+.wrangler/
+next-env.d.ts
+.dev.vars
+*.tsbuildinfo
