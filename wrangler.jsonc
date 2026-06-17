@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "book-releases",
+  // Custom worker re-exports the OpenNext fetch handler and adds a scheduled()
+  // handler for the tracking + digest cron jobs.
+  "main": "worker.ts",
+  "compatibility_date": "2025-03-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "book-releases",
+      // Replace with the id from `wrangler d1 create book-releases`.
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // 13:00 UTC: track authors -> queue events. 14:00 UTC: dispatch due digests.
+  "triggers": {
+    "crons": ["0 13 * * *", "0 14 * * *"]
+  },
+  "vars": {
+    "APP_BASE_URL": "http://localhost:8787",
+    "RESEND_FROM": "onboarding@resend.dev"
+  }
+}

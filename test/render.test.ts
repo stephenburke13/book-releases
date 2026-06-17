@@ -15,6 +15,7 @@ describe("renderDigest", () => {
   const events: NotifyEvent[] = [
     {
       type: "announcement",
+      author_key: "sanderson",
       author: "Brandon Sanderson",
       title: "Brand New Book",
       release_date: "2027-03-01",
@@ -23,6 +24,7 @@ describe("renderDigest", () => {
     },
     {
       type: "release",
+      author_key: "jemisin",
       author: "N. K. Jemisin",
       title: "The Coming One",
       release_date: "2026-06-16",
@@ -31,6 +33,7 @@ describe("renderDigest", () => {
     },
     {
       type: "date_change",
+      author_key: "sanderson",
       author: "Brandon Sanderson",
       title: "Slippery Title",
       release_date: "2026-09-15",
@@ -59,6 +62,7 @@ describe("renderDigest", () => {
     const { html } = renderDigest([
       {
         type: "announcement",
+        author_key: "ab",
         author: "A&B",
         title: "<script>",
         release_date: "2027-01-01",

@@ -75,6 +75,7 @@ function eventFromWork(
 ): NotifyEvent {
   return {
     type,
+    author_key: work.author_key,
     author: work.author,
     title: work.title,
     release_date: work.release_date,

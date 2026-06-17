@@ -1,20 +1,21 @@
-// Orchestration: load -> fetch all sources per author -> dedupe -> diff ->
-// render -> send -> save. Email send is the commit point: state is only written
-// after a successful send, so a send failure is retried on the next run.
+// Single-user CLI orchestration: load config + state -> fetch -> dedupe -> diff
+// -> render -> send -> save. Email send is the commit point: state is only
+// written after a successful send, so a send failure is retried on the next run.
+//
+// The fetch/dedupe/diff core lives in track.ts and is shared with the Cloudflare
+// Worker; this file holds the CLI-only concerns (config.yaml, Resend, file state).
 
-import { loadConfig, type Settings } from "./config.js";
-import { loadState, saveState } from "./state.js";
-import { mergeIncoming } from "./dedupe.js";
-import { runDiff, type AuthorRun } from "./diff.js";
+import { loadConfig } from "./config.js";
+import { runDiff } from "./diff.js";
 import { todayUtc } from "./normalize.js";
-import type { FetchedWork, SourceName } from "./models.js";
-import { HardcoverSource } from "./sources/hardcover.js";
-import { GoogleBooksSource } from "./sources/googlebooks.js";
-import type { Source } from "./sources/base.js";
+import type { SourceName } from "./models.js";
+import type { Settings } from "./config.js";
 import { ConsoleProvider } from "./email/console.js";
 import { ResendProvider } from "./email/resend.js";
 import { renderDigest } from "./email/render.js";
 import type { EmailProvider } from "./email/base.js";
+import { FileStateStore } from "./store/file.js";
+import { buildSources, gatherAuthorRuns, type SourceEnv } from "./track.js";
 
 export interface RunOptions {
   dryRun?: boolean;
@@ -22,24 +23,6 @@ export interface RunOptions {
   configPath?: string;
   statePath?: string;
   now?: Date;
-}
-
-function buildSources(settings: Settings, only?: SourceName): Source[] {
-  const sources: Source[] = [];
-  for (const name of settings.enabled_sources) {
-    if (only && name !== only) continue;
-    if (name === "hardcover") {
-      const token = process.env.HARDCOVER_TOKEN;
-      if (!token) {
-        console.warn("[hardcover] HARDCOVER_TOKEN not set — skipping source.");
-        continue;
-      }
-      sources.push(new HardcoverSource(token));
-    } else if (name === "googlebooks") {
-      sources.push(new GoogleBooksSource(process.env.GOOGLE_BOOKS_API_KEY));
-    }
-  }
-  return sources;
 }
 
 function buildEmailProvider(settings: Settings, dryRun: boolean): EmailProvider {
@@ -51,39 +34,19 @@ function buildEmailProvider(settings: Settings, dryRun: boolean): EmailProvider 
   return new ResendProvider(apiKey, settings.email.from, settings.email.to);
 }
 
+/** Single-user CLI run: fetch, diff, email, then save (send is the commit point). */
 export async function run(opts: RunOptions = {}): Promise<number> {
   const dryRun = opts.dryRun ?? false;
   const config = loadConfig(opts.configPath);
-  const state = loadState(opts.statePath);
+  const store = new FileStateStore(opts.statePath);
   const { settings } = config;
 
-  const sources = buildSources(settings, opts.onlySource);
+  const sources = buildSources(settings, process.env as SourceEnv, opts.onlySource);
   const sourcesOk: Partial<Record<SourceName, boolean>> = {};
   for (const s of sources) sourcesOk[s.name] = true;
 
-  const authorRuns: AuthorRun[] = [];
-  for (const author of config.authors) {
-    const fetched: FetchedWork[] = [];
-    const okSources: SourceName[] = [];
-    for (const source of sources) {
-      if (!source.canHandle(author)) continue;
-      try {
-        const works = await source.fetchAuthor(author, settings);
-        fetched.push(...works);
-        okSources.push(source.name);
-        console.error(`[${source.name}] ${author.author_key}: ${works.length} works`);
-      } catch (err) {
-        sourcesOk[source.name] = false;
-        console.error(`[${source.name}] ${author.author_key} FAILED: ${String(err)}`);
-      }
-    }
-    authorRuns.push({
-      authorKey: author.author_key,
-      author: author.name,
-      works: mergeIncoming(fetched),
-      okSources,
-    });
-  }
+  const state = await store.load();
+  const authorRuns = await gatherAuthorRuns(config.authors, sources, settings, sourcesOk);
 
   const now = opts.now ?? new Date();
   const { events, nextState } = runDiff({
@@ -106,7 +69,7 @@ export async function run(opts: RunOptions = {}): Promise<number> {
   }
 
   if (!dryRun) {
-    saveState(nextState, opts.statePath);
+    await store.save(nextState);
   } else {
     console.error("[dry-run] state.json not written.");
   }
