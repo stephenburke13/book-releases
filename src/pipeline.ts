@@ -1,13 +1,18 @@
 // Orchestration: load -> fetch all sources per author -> dedupe -> diff ->
-// render -> send -> save. Email send is the commit point: state is only written
-// after a successful send, so a send failure is retried on the next run.
+// (render -> send for the CLI) -> save.
+//
+// Two entry points share the fetch/dedupe/diff core:
+//   - run():   the single-user CLI. Email send is the commit point — state is
+//              only written after a successful send.
+//   - track(): the multi-user tracking job. Storage-agnostic via StateStore;
+//              records events for later per-subscriber digests instead of
+//              emailing inline.
 
-import { loadConfig, type Settings } from "./config.js";
-import { loadState, saveState } from "./state.js";
+import { loadConfig, type AuthorConfig, type Settings } from "./config.js";
 import { mergeIncoming } from "./dedupe.js";
 import { runDiff, type AuthorRun } from "./diff.js";
 import { todayUtc } from "./normalize.js";
-import type { FetchedWork, SourceName } from "./models.js";
+import type { FetchedWork, NotifyEvent, SourceName } from "./models.js";
 import { HardcoverSource } from "./sources/hardcover.js";
 import { GoogleBooksSource } from "./sources/googlebooks.js";
 import type { Source } from "./sources/base.js";
@@ -15,6 +20,15 @@ import { ConsoleProvider } from "./email/console.js";
 import { ResendProvider } from "./email/resend.js";
 import { renderDigest } from "./email/render.js";
 import type { EmailProvider } from "./email/base.js";
+import { FileStateStore } from "./store/file.js";
+import type { StateStore } from "./store/base.js";
+
+/** Source credentials. Defaults to process.env for the CLI; the Worker passes
+ * its own bindings (process.env is not the source of truth on Workers). */
+export interface SourceEnv {
+  HARDCOVER_TOKEN?: string | undefined;
+  GOOGLE_BOOKS_API_KEY?: string | undefined;
+}
 
 export interface RunOptions {
   dryRun?: boolean;
@@ -24,19 +38,28 @@ export interface RunOptions {
   now?: Date;
 }
 
-function buildSources(settings: Settings, only?: SourceName): Source[] {
+export interface TrackOptions {
+  authors: AuthorConfig[];
+  settings: Settings;
+  store: StateStore;
+  env?: SourceEnv;
+  onlySource?: SourceName;
+  now?: Date;
+}
+
+function buildSources(settings: Settings, env: SourceEnv, only?: SourceName): Source[] {
   const sources: Source[] = [];
   for (const name of settings.enabled_sources) {
     if (only && name !== only) continue;
     if (name === "hardcover") {
-      const token = process.env.HARDCOVER_TOKEN;
+      const token = env.HARDCOVER_TOKEN;
       if (!token) {
         console.warn("[hardcover] HARDCOVER_TOKEN not set — skipping source.");
         continue;
       }
       sources.push(new HardcoverSource(token));
     } else if (name === "googlebooks") {
-      sources.push(new GoogleBooksSource(process.env.GOOGLE_BOOKS_API_KEY));
+      sources.push(new GoogleBooksSource(env.GOOGLE_BOOKS_API_KEY));
     }
   }
   return sources;
@@ -51,18 +74,15 @@ function buildEmailProvider(settings: Settings, dryRun: boolean): EmailProvider 
   return new ResendProvider(apiKey, settings.email.from, settings.email.to);
 }
 
-export async function run(opts: RunOptions = {}): Promise<number> {
-  const dryRun = opts.dryRun ?? false;
-  const config = loadConfig(opts.configPath);
-  const state = loadState(opts.statePath);
-  const { settings } = config;
-
-  const sources = buildSources(settings, opts.onlySource);
-  const sourcesOk: Partial<Record<SourceName, boolean>> = {};
-  for (const s of sources) sourcesOk[s.name] = true;
-
+/** Fetch every applicable source for every author and dedupe per author. */
+async function gatherAuthorRuns(
+  authors: AuthorConfig[],
+  sources: Source[],
+  settings: Settings,
+  sourcesOk: Partial<Record<SourceName, boolean>>,
+): Promise<AuthorRun[]> {
   const authorRuns: AuthorRun[] = [];
-  for (const author of config.authors) {
+  for (const author of authors) {
     const fetched: FetchedWork[] = [];
     const okSources: SourceName[] = [];
     for (const source of sources) {
@@ -84,6 +104,53 @@ export async function run(opts: RunOptions = {}): Promise<number> {
       okSources,
     });
   }
+  return authorRuns;
+}
+
+/**
+ * Multi-user tracking run. Runs the fetch/dedupe/diff core over the given
+ * authors against the store's State, persists the next State, and records the
+ * run's events for later per-subscriber digests. No email is sent here.
+ */
+export async function track(opts: TrackOptions): Promise<NotifyEvent[]> {
+  const { authors, settings, store } = opts;
+  const env = opts.env ?? (process.env as SourceEnv);
+  const sources = buildSources(settings, env, opts.onlySource);
+  const sourcesOk: Partial<Record<SourceName, boolean>> = {};
+  for (const s of sources) sourcesOk[s.name] = true;
+
+  const state = await store.load();
+  const authorRuns = await gatherAuthorRuns(authors, sources, settings, sourcesOk);
+
+  const now = opts.now ?? new Date();
+  const { events, nextState } = runDiff({
+    state,
+    authors: authorRuns,
+    settings,
+    runCounter: state.run_counter + 1,
+    today: todayUtc(now),
+    sourcesOk,
+    now,
+  });
+
+  await store.save(nextState);
+  await store.recordEvents(events, now);
+  return events;
+}
+
+/** Single-user CLI run: fetch, diff, email, then save (send is the commit point). */
+export async function run(opts: RunOptions = {}): Promise<number> {
+  const dryRun = opts.dryRun ?? false;
+  const config = loadConfig(opts.configPath);
+  const store = new FileStateStore(opts.statePath);
+  const { settings } = config;
+
+  const sources = buildSources(settings, process.env as SourceEnv, opts.onlySource);
+  const sourcesOk: Partial<Record<SourceName, boolean>> = {};
+  for (const s of sources) sourcesOk[s.name] = true;
+
+  const state = await store.load();
+  const authorRuns = await gatherAuthorRuns(config.authors, sources, settings, sourcesOk);
 
   const now = opts.now ?? new Date();
   const { events, nextState } = runDiff({
@@ -106,7 +173,7 @@ export async function run(opts: RunOptions = {}): Promise<number> {
   }
 
   if (!dryRun) {
-    saveState(nextState, opts.statePath);
+    await store.save(nextState);
   } else {
     console.error("[dry-run] state.json not written.");
   }

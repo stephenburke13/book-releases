@@ -107,6 +107,8 @@ export type EventType = "announcement" | "release" | "date_change";
 /** A single thing worth emailing about, produced by the diff engine. */
 export interface NotifyEvent {
   type: EventType;
+  /** Stable author slug, used to route events to subscribers. */
+  author_key: string;
   author: string;
   title: string;
   release_date: string;
