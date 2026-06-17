@@ -1,0 +1,25 @@
+# Copy to .dev.vars for local `next dev` / `wrangler dev`. Never commit .dev.vars.
+# In production set these with `wrangler secret put <NAME>` (secrets) or in
+# wrangler.jsonc `vars` (non-secret config).
+
+# Hardcover GraphQL bearer token (JWT). Powers author search + the tracking job.
+# Expires yearly (resets Jan 1).
+HARDCOVER_TOKEN=
+
+# Optional Google Books API key (quota for the secondary source).
+GOOGLE_BOOKS_API_KEY=
+
+# Resend API key for sending confirmation/digest email.
+RESEND_API_KEY=
+# From address. Use onboarding@resend.dev for testing (delivers only to your
+# Resend account email); switch to a verified-domain address for real sends.
+RESEND_FROM=onboarding@resend.dev
+
+# Secret used to HMAC-sign confirm/manage tokens. Use a long random string.
+SIGNING_SECRET=
+
+# Public base URL used to build links in emails.
+APP_BASE_URL=http://localhost:8787
+
+# Shared secret guarding the manual POST /api/cron trigger.
+CRON_SECRET=
