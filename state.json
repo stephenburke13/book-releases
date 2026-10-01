@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "run_counter": 111,
+  "run_counter": 112,
   "last_run": {
-    "run": 111,
-    "at": "2026-09-30T18:11:03.298Z",
+    "run": 112,
+    "at": "2026-10-01T18:36:45.440Z",
     "sources_ok": {
       "googlebooks": false
     }
@@ -11,7 +11,7 @@
   "authors_seeded": {
     "sanderson": {
       "sources": [],
-      "run": 111
+      "run": 112
     }
   },
   "works": {}
